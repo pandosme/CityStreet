@@ -1,0 +1,24 @@
+{
+    "schemaVersion": "1.7.1",
+    "acapPackageConf": {
+        "setup": {
+            "friendlyName": "CityStreet",
+            "appName": "detectx",
+            "vendor": "Fred Juhlin",
+            "embeddedSdkVersion": "3.0",
+            "vendorUrl": "https://pandosme.github.io",
+            "runMode": "once",
+            "version": "3.1.5"
+        },
+        "configuration": {
+			"settingPage": "index.html",
+			"httpConfig": [
+				{"name": "app","access": "admin","type": "fastCgi"},
+				{"name": "settings","access": "admin","type": "fastCgi"},
+				{"name": "status","access": "admin","type": "fastCgi"},
+				{"name": "device","access": "admin","type": "fastCgi"},
+				{"name": "model","access": "admin","type": "fastCgi"}
+			]
+		}
+    }
+}

@@ -1,0 +1,4 @@
+Cyclist
+E-scooter
+Person
+Vehicle

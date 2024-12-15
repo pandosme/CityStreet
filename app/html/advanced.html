@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Model</title>
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/app.css">
+    <script src="js/jquery.min.js"></script>
+    <script src="js/bootstrap.min.js"></script>
+</head>
+
+<body>
+<div class="d-flex" id="wrapper">
+	<!-- Sidebar -->
+	<div class="bg-light border-right" id="sidebar-wrapper">
+		<div class="sidebar-heading">Custom Model</div>
+		<div class="list-group list-group-flush">
+			<a href="index.html" class="list-group-item list-group-item-action">Detections</a>
+			<a href="advanced.html" class="list-group-item list-group-item-action active">Advanced</a>
+			<a href="about.html" class="list-group-item list-group-item-action">About</a>
+		</div>
+	</div>
+	<!-- /#sidebar-wrapper -->
+
+	<!-- Page Content -->
+	<div id="page-content-wrapper">
+		<nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom">
+			<button class="btn btn-link" id="menu-toggle">
+				<i class="fas fa-bars"></i>
+			</button>
+			<span class="navbar-text" id="model_status">Loading...</span>
+		</nav>
+
+		<div class="container-fluid">
+			<div class="row">
+				<div class="col-md-12">
+					<br>
+					<div class="container">
+						<div class="row align-items-center">
+							<div class="col-auto">
+								<h3 id="debug-heading">Settings</h3>
+							</div>
+						</div>
+						<div class="row align-items-center mt-2">
+							<div class="col-auto">
+								<label for="stabelizeTransition" class="col-form-label">Stabilize transition time</label>
+							</div>
+							<div class="col-3">
+								<select class="form-control" id="stabelizeTransition">
+									<option value="0">Immidiate</option>
+									<option value="300">300 ms</option>
+									<option value="600">600 ms</option>
+									<option value="900">900 ms</option>
+									<option value="1200">1.2 s</option>
+									<option value="1500">1.5 s</option>
+									<option value="2000">2 s</option>
+									<option value="2000">4 s</option>
+								</select>
+							</div>
+						</div>
+						<div class="row align-items-center mt-2">
+							<div class="col-auto">
+								<label for="minEventDuration" class="col-form-label">Min event state duration</label>
+							</div>
+							<div class="col-3">
+								<select class="form-control" id="minEventDuration">
+									<option value="2000">2 seconds</option>
+									<option value="3000">3 seconds</option>
+									<option value="5000">5 seconds</option>
+									<option value="10000">10 seconds</option>
+									<option value="15000">15 seconds</option>
+									<option value="30000">30 seconds</option>
+								</select>
+							</div>
+						</div>
+					</div>
+					<br><br>						
+					<h3 id="labels-heading">Labels Processed</h3>
+					<table class="table" id="labelsTable">
+						<!-- Checkboxes will be dynamically inserted here -->
+					</table>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<script>
+var App = 0;
+
+$(document).ready(function() {
+	$.ajax({
+		type: "GET",
+		url: 'app',
+		dataType: 'json',
+		cache: false,
+		success: function(data) {
+			App = data;
+			// Update UI elements
+			document.title = App.manifest.acapPackageConf.setup.friendlyName;
+			$(".acapName").html(App.manifest.acapPackageConf.setup.friendlyName);
+			$("#sidebar-wrapper .sidebar-heading").html(App.manifest.acapPackageConf.setup.friendlyName);
+			$("#model_status").text("Status: " + App.status.model.status);
+			// Create checkboxes for labels
+			$('#storeImagesCheckbox').prop('checked', App.settings.capture);
+			createLabelCheckboxes(App.model.labels, App.settings.ignore);
+			$("#stabelizeTransition").val(App.settings.stabelizeTransition);
+			$("#minEventDuration").val(App.settings.minEventDuration);
+		},
+		error: function(response) {
+			alert(response.statusText);
+		}
+	});
+
+	setInterval( function(){
+		$.ajax({type: "GET",url: 'status',dataType: 'json',cache: false,
+			success: function( data ) {
+				$("#model_status").text("Status: " + data.model.status);
+			},
+			error(){
+				$("#model_status").text("Status: No response");
+			}
+		});
+	},300);
+});
+
+
+$('.label-checkbox').change(function() {
+	const label = $(this).data('label');
+
+	if (this.checked) {
+		// Remove label from ignore list
+		App.settings.ignore = App.settings.ignore.filter(item => item !== label);
+	} else {
+		// Add label to ignore list
+		if (!App.settings.ignore.includes(label)) {
+			App.settings.ignore.push(label);
+		}
+	}
+	$.ajax({
+		type: "POST",
+		url: "settings",
+		contentType: 'application/json',
+		data: JSON.stringify({"ignore": App.settings.ignore}),
+		success: function(response) {
+			console.log("AOI updated successfully.");
+		},
+		error: function(response) {
+			alert("Failed to update AOI: " + response.statusText);
+		}
+	});
+});
+
+$('#minEventDuration').change(function() {
+	$.ajax({
+		type: "POST",
+		url: "settings",
+		contentType: 'application/json',
+		data: JSON.stringify({ "minEventDuration": parseInt($(this).val()) }),
+		success: function(response) {
+			console.log("Settings updated successfully");
+		},
+		error: function(response) {
+			alert("Failed to update setting: " + response.statusText);
+		}
+	});
+});
+
+$('#stabelizeTransition').change(function() {
+	$.ajax({
+		type: "POST",
+		url: "settings",
+		contentType: 'application/json',
+		data: JSON.stringify({ "stabelizeTransition": parseInt($(this).val()) }),
+		success: function(response) {
+			console.log("Settings updated successfully");
+		},
+		error: function(response) {
+			alert("Failed to update setting: " + response.statusText);
+		}
+	});
+});
+
+
+$("#menu-toggle").click(function(e) {
+	e.preventDefault();
+	$("#wrapper").toggleClass("toggled");
+});
+
+function createLabelCheckboxes(labels, ignoreList) {
+	const table = $('#labelsTable');
+	const columns = 10; // Number of columns
+
+	for (let i = 0; i < labels.length; i += columns) {
+		const row = $('<tr></tr>');
+
+		for (let j = 0; j < columns; j++) {
+			const index = i + j;
+			const label = labels[index];
+			if (index >= labels.length) break;
+
+			const isChecked = !ignoreList.includes(label);
+			var td = '<td>';
+			td += '<div class="form-check">';
+			td += '<input type="checkbox" class="form-check-input label-checkbox" id="label-' + index + '" data-label=" ' + label + '"';
+			if( isChecked )
+				td += 'checked';
+			td += '>';
+			td += '<label class="form-check-label" for="label-' + index + '">' + label + '</label>';
+			td += '</div>';
+			td += '</td>';
+			row.append(td);
+		}
+
+		table.append(row);
+	}
+
+}
+
+
+</script>
+</body>
+
+</html>

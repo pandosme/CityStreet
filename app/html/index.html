@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Model</title>
+    <link rel="stylesheet" href="css/bootstrap.min.css">
+    <link rel="stylesheet" href="css/app.css">
+    <link rel="stylesheet" href="css/imgareaselect-default.css">
+    <script src="js/jquery.min.js"></script>
+    <script src="js/bootstrap.min.js"></script>
+    <script src="js/media-stream-player.min.js"></script>
+    <script src="js/jquery.imgareaselect.js"></script>
+</head>
+
+<body>
+    <div class="d-flex" id="wrapper">
+        <!-- Sidebar -->
+        <div class="bg-light border-right" id="sidebar-wrapper">
+            <div class="sidebar-heading">Custom Model</div>
+            <div class="list-group list-group-flush">
+                <a href="index.html" class="list-group-item list-group-item-action active">Detections</a>
+                <a href="advanced.html" class="list-group-item list-group-item-action">Advanced</a>
+                <a href="about.html" class="list-group-item list-group-item-action">About</a>
+            </div>
+        </div>
+        <!-- /#sidebar-wrapper -->
+
+        <!-- Page Content -->
+        <div id="page-content-wrapper" class="p-0">
+            <div id='modal' style='display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000;'>
+                <div style='position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); background:white; padding:20px;'>
+                    <h2>Model Offline</h2>
+                    <p>The model is currently loading. Please wait.</p>
+                </div>
+            </div>		
+            <nav class="navbar navbar-expand-lg navbar-light bg-light border-bottom">
+                <button class="btn btn-link" id="menu-toggle">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <span class="navbar-text" id="model_status">Loading...</span>
+            </nav>
+
+            <div class="container-fluid">
+                <!-- Image/Video -->
+                <div class="row">
+                    <div class="p-0">
+                        <div id="view">
+                            <div id="viewgroup" style="width:100%; height:100%; position:relative">
+                                <img id="snapshot" class="card-img-top" src="" alt="Image" style="width:100%; height:100%; position:absolute; top:0; left:0; object-fit: contain;">
+                                <div id="video" style="width:100%; height:100%; position:absolute; top:0; left:0;"></div>
+								<canvas id="canvas" width="1000" height="1000" style="width:100%; height:100%; position:absolute; top:0px; left:0px;"></canvas>
+                            </div>
+                        </div>
+						<div class="control-row mt-4">
+							<label for="settings_confidence" class="form-label">Confidence</label>
+							<select id="settings_confidence" class="setting form-control">
+								<option value="30">30</option>
+								<option value="40">40</option>
+								<option value="50">50</option>
+								<option value="60">60</option>
+								<option value="70">70</option>
+								<option value="75">75</option>
+								<option value="80">80</option>
+								<option value="85">85</option>
+								<option value="90">90</option>
+								<option value="95">95</option>
+							</select>
+							<button id="aoi_button" class="btn btn-secondary">Set Area Of Interest</button>
+							<button id="size_button" class="btn btn-secondary">Set Minumum size</button>
+						</div>
+                    </div>
+                    <div class="table-container">
+                        <h4>Active event states</h4>
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Event</th>
+                                </tr>
+                            </thead>
+                            <tbody id="events-table">
+                                <!-- Data will be appended here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Controls -->
+            </div>
+        </div>
+    </div>
+
+<script>
+var App = 0;
+var imageWidth = 800;
+var imageHeight = 450;
+var videoWidth = 640;
+var videoHeight = 360;
+var viewWidth = 800;
+var viewHeight = 450;
+var inferenceTimer = 0;
+var imgAreaSelectInstance = null;
+var modelRunning = false;
+var selectionMode = "aoi";
+var setupComplete = false;
+		
+$(document).ready(function() {
+	$.ajax({type: "GET",url: 'app',dataType: 'json',cache: false,
+		success: function(data) {
+			App = data;
+			// Update UI elements
+			document.title = App.manifest.acapPackageConf.setup.friendlyName;
+			$(".acapName").html(App.manifest.acapPackageConf.setup.friendlyName);
+			$("#sidebar-wrapper .sidebar-heading").html(App.manifest.acapPackageConf.setup.friendlyName);
+			$("#model_status").text("Status: " + App.status.model.status);
+			$("#settings_confidence").val(App.settings.confidence);
+			SetupView(App.model.videoAspect);
+			imgAreaSelectInstance = $("#video").imgAreaSelect({
+				x1: parseInt( App.settings.aoi.x1 / 1000 * imageWidth),
+				y1: parseInt( App.settings.aoi.y1 / 1000 * imageHeight),
+				x2: parseInt( App.settings.aoi.x2 / 1000 * imageWidth),
+				y2: parseInt( App.settings.aoi.y2 / 1000 * imageHeight),
+				handles: true, enable:true, movable:true, resizable:true, show:false,
+				instance: true,
+				onSelectEnd: function(img, selection) {
+					var x1 = Math.round(selection.x1 * 1000 / imageWidth);
+					var x2 = Math.round(selection.x2 * 1000 / imageWidth);
+					var y1 = Math.round(selection.y1 * 1000 / imageHeight);
+					var y2 = Math.round(selection.y2 * 1000 / imageHeight);
+					if( selectionMode === "aoi" ) {
+						App.settings.aoi = { x1, y1, x2, y2 };
+						$.ajax({type: "POST",url: "settings",contentType: 'application/json',
+							data: JSON.stringify({ aoi: App.settings.aoi }),
+							success: function(response) {
+								console.log("AOI updated successfully.");
+							},
+							error: function(response) {
+								alert("Failed to update AOI: " + response.statusText);
+							}
+						});
+					} else {
+						App.settings.size = { x1, y1, x2, y2 };
+						$.ajax({type: "POST",url: "settings",contentType: 'application/json',
+							data: JSON.stringify({ size: App.settings.size }),
+							success: function(response) {
+								console.log("AOI updated successfully.");
+							},
+							error: function(response) {
+								alert("Failed to update AOI: " + response.statusText);
+							}
+						});
+					}
+				}
+			});
+			imgAreaSelectInstance.setOptions({hide:true});
+		},
+		error: function(response) {
+			alert(response.statusText);
+		}
+	});
+
+	$("#reset_detections").click(function() {
+		var canvas = document.getElementById('canvas');
+		var ctx = canvas.getContext("2d");
+		ctx.beginPath();
+		ctx.clearRect(0, 0, 1000, 1000 );
+		ctx.stroke();
+		appendDataToTable([]);
+		$.ajax({type: "GET",url: 'detections?reset=yes',dataType: 'json',cache: false});
+	});
+
+	// Set AOI button click handler
+	$("#aoi_button").click(function() {
+		var x1 = parseInt( App.settings.aoi.x1 / 1000 * imageWidth);
+		var y1 = parseInt( App.settings.aoi.y1 / 1000 * imageHeight);
+		var x2 = parseInt( App.settings.aoi.x2 / 1000 * imageWidth);
+		var y2 = parseInt( App.settings.aoi.y2 / 1000 * imageHeight);
+
+		imgAreaSelectInstance.setSelection(x1, y1, x2, y2, 0);		
+		if (selectionMode === "aoi" ) {
+			selectionMode = "none";
+			imgAreaSelectInstance.setOptions({hide:true});
+			$(this).removeClass('btn-primary').addClass('btn-secondary');
+		} else {
+			selectionMode = "aoi";
+			imgAreaSelectInstance.setOptions({show:true});
+			$("#size_button").removeClass('btn-primary').addClass('btn-secondary');
+			$(this).removeClass('btn-secondary').addClass('btn-primary');
+		}
+	});
+
+	$("#size_button").click(function() {
+		if (selectionMode === "size" ) {
+			selectionMode = "none";
+			imgAreaSelectInstance.setOptions({hide:true});
+			$(this).removeClass('btn-primary').addClass('btn-secondary');
+		} else {
+			selectionMode = "size";
+			var x1 = parseInt( App.settings.size.x1 / 1000 * imageWidth);
+			var y1 = parseInt( App.settings.size.y1 / 1000 * imageHeight);
+			var x2 = parseInt( App.settings.size.x2 / 1000 * imageWidth);
+			var y2 = parseInt( App.settings.size.y2 / 1000 * imageHeight);
+			imgAreaSelectInstance.setSelection(x1, y1, x2, y2, 0);
+			imgAreaSelectInstance.setOptions({show:true});
+			$(this).removeClass('btn-secondary').addClass('btn-primary');
+			$("#aoi_button").removeClass('btn-primary').addClass('btn-secondary');
+		}
+	});
+
+	$("#settings_confidence").change(function() {
+		var confidenceValue = parseInt($(this).val());
+		App.settings.confidence = confidenceValue;
+		$.ajax({type: "POST",url: "settings",contentType: 'application/json',
+			data: JSON.stringify({ confidence: confidenceValue }),
+			success: function(response) {
+				currentSettings = newSettings;
+			},
+			error: function(xhr, status, error) {
+				alert('Failed to save settings: ' + error);
+			}
+		});
+	});
+			
+	setInterval( function(){
+		$.ajax({type: "GET",url: 'status',dataType: 'json',cache: false,
+			success: function( status ) {
+				$("#model_status").text("Status: " + status.model.status);
+				modelRunning = status.model.state;
+			   // Show or hide the modal based on data.model.status
+				if (!status.model.status) {
+					$('#modal').show();
+				} else {
+					$('#modal').hide();
+				}
+
+				$('#events-table').empty();
+				if( !status.hasOwnProperty("labels") )
+					return;
+
+				if( !status.labels.hasOwnProperty("detections") )
+					return;
+				
+				var canvas = document.getElementById('canvas');
+				var ctx = canvas.getContext("2d");
+
+				ctx.beginPath();
+				ctx.clearRect(0, 0, 1000, 1000 );
+				ctx.stroke();
+				ctx.lineWidth = 3;
+				ctx.strokeStyle = '#FFFF00';
+				ctx.font = '24px Arial';  // Set font style and size
+				ctx.fillStyle = '#FFFF00'; // Same color as the box				
+				ctx.beginPath();
+				for( var i = 0; i < status.labels.detections.length; i++ ) {
+				    var detection = status.labels.detections[i];
+					ctx.rect(detection.x, detection.y, detection.w, detection.h );
+					var text = detection.label + ': ' + detection.c;
+					ctx.fillText(text, detection.x, detection.y - 10); // -10 to position 					
+				}
+				ctx.stroke();	
+
+				var events = status.events;
+				for( var label in events ) {
+					if( events[label] ) {
+						var row = '<tr><td>' + label + '</td></tr>';
+						$('#events-table').append(row);
+					}
+				};
+			},
+			error(){
+				$('#modal').show();
+				$("#model_status").text("Status: Loading...");
+			}
+		});
+	},300);
+
+});			
+
+function SetupView(aspect) {
+	switch (aspect) {
+		case '4:3': viewWidth = 800; viewHeight = 600; videoWidth = 800; videoHeight = 600; imageWidth = 800; imageHeight = 600; break;
+		case '16:9':viewWidth = 800; viewHeight = 450; videoWidth = 1280; videoHeight = 720; imageWidth = 800; imageHeight = 450; break;
+		case '1:1': viewWidth = 450; viewHeight = 450; videoWidth = 640; videoHeight = 640; imageWidth = 640; imageHeight = 640; break;
+		case '16:10': videoWidth = 800; videoHeight = 500; imageWidth = 800; imageHeight = 500; break;
+	}
+
+	$("#view").css("width", viewWidth + "px");
+	$("#view").css("height", viewHeight + "px");
+
+	var src = '/axis-cgi/jpg/image.cgi?resolution=' + imageWidth + 'x' + imageHeight + '&compression=25&camera=1'; // '/axis-cgi/mjpg/video.cgi'; //?resolution='+imageWidth+'x'+imageHeight;//+'&compression=40&fps=5';
+	$("#snapshot").attr("src", src);
+
+	var secureConnection = "";
+	if (location.protocol === 'https:')
+		secureConnection = "secure=true"
+	var player = '<media-stream-player hostname="' + window.location.hostname + '" ' + secureConnection + '  format="RTP_H264" compression="40" audio="0" resolution="' + imageWidth + 'x' + imageHeight + '" variant="basic" autoplay></media-stream-player>';
+	$("#video").append(player);
+	setupComplete = true;
+}
+
+$("#menu-toggle").click(function(e) {
+	e.preventDefault();
+	$("#wrapper").toggleClass("toggled");
+});
+
+function appendDataToTable(dataArray) {
+	var $tableBody = $("#detection-table");
+	$tableBody.empty(); // Clear existing data
+	dataArray.forEach(function(item) {
+		var row = '<tr><td>' + item.label + ' </td><td>' + item.c + '</td></tr>';
+		$tableBody.append(row);
+	});
+}
+
+</script>
+</body>
+
+</html>

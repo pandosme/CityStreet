@@ -1,0 +1,23 @@
+{
+  "modelWidth": 960,
+  "modelHeight": 960,
+  "quant": 0.00392136862501502,
+  "zeroPoint": 0,
+  "boxes": 56700,
+  "classes": 4,
+  "objectness": 0.25,
+  "nms": 0.05,
+  "path": "model/model.tflite",
+  "scaleMode": 0,
+  "videoWidth": 1280,
+  "videoHeight": 960,
+  "videoAspect": "4:3",
+  "chip": "axis-a8-dlpu-tflite",
+  "labels": [
+    "Cyclist",
+    "E-scooter",
+    "Person",
+    "Vehicle"
+  ],
+  "description": "Trained on dataset https://universe.roboflow.com/simone-bernabe/smart-city-pedestrian-bike-detection"
+}
