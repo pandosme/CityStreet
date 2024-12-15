@@ -1,9 +1,15 @@
-# Hand Gesture
+# CityStreet
 
-This ACAP is based on [DetectX](https://github.com/pandosme/DetectX), an open-source package.
+This ACAP is based on [DetectX](https://github.com/pandosme/DetectX), an open-source package.  
 The model is trained the dataset https://universe.roboflow.com/simone-bernabe/smart-city-pedestrian-bike-detection.  
 
 ![escooter](https://raw.githubusercontent.com/pandosme/CityStreet/pictures/escooter.jpg)
+
+# Labels
+- Cyclist
+- E-scooter
+- Person
+- Vehicle
 
 # Pre-requsite
 - Axis Camera based on ARTPEC-8.
