@@ -3,7 +3,7 @@
 This ACAP is based on [DetectX](https://github.com/pandosme/DetectX), an open-source package.  
 The model is trained the dataset https://universe.roboflow.com/simone-bernabe/smart-city-pedestrian-bike-detection.  
 
-![escooter](https://raw.githubusercontent.com/pandosme/CityStreet/pictures/escooter.jpg)
+![escooter](https://raw.githubusercontent.com/pandosme/CityStreet/main/pictures/escooter.jpg)
 
 # Labels
 - Cyclist
